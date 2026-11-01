@@ -86,26 +86,80 @@
 
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-    .two-columns {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
+    /* Ett alternativ: namn och en ta bort-knapp. */
+    .alternatives-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
     }
 
-    /* Ett kriterium: namn, vikt och poäng för båda alternativen. */
+    .alternatives-footer .hint { margin: 0; }
+
+    /* Var i jämförelsen användaren befinner sig. */
+    .progress {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .progress button {
+      min-width: 40px;
+      padding: 6px 10px;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .progress button.done {
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+
+    .progress button[aria-current] {
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
+      font-weight: 700;
+    }
+
+    .status { margin: 0; font-weight: 600; }
+    .status:focus { outline: none; }
+    .status-detail { margin: 0 0 16px; color: var(--muted); font-size: 0.95rem; overflow-wrap: anywhere; }
+
+    /* Ett kriterium: namn, vikt och poäng för alla alternativ. */
     .criterion {
       border-top: 1px solid var(--line);
       padding: 20px 0;
     }
 
-    .criterion-head {
+    .criterion-head, .alternative-row {
       display: flex;
       align-items: flex-end;
       gap: 12px;
       margin-bottom: 16px;
     }
 
-    .criterion-head > div { flex: 1; }
+    .criterion-head > div, .alternative-row > div { flex: 1; min-width: 0; }
+
+    /* Varje alternativ får ett eget kort. Korten hamnar under varandra när bredden tar slut. */
+    .score-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .score-card {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .criterion-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
 
     /* Knapparna 1–5 är egentligen radioknappar med ett annat utseende. */
     fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
@@ -145,6 +199,8 @@
       cursor: pointer;
     }
 
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
     button.primary {
       width: 100%;
       background: var(--accent);
@@ -163,7 +219,7 @@
       color: var(--error);
     }
 
-    .errors ul { margin: 0; padding-left: 18px; }
+    .errors ul { margin: 0; padding-left: 18px; overflow-wrap: anywhere; }
 
     .storage-warning {
       margin-bottom: 16px;
@@ -215,15 +271,15 @@
     table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
     th, td { padding: 8px; border-bottom: 1px solid var(--line); text-align: right; overflow-wrap: break-word; }
     th:first-child, td:first-child { text-align: left; padding-left: 0; }
+    tbody td:not(:first-child) { white-space: nowrap; }
     tfoot td { font-weight: 700; border-bottom: 0; }
 
     [hidden] { display: none !important; }
 
-    /* På smala skärmar hamnar kolumnerna under varandra. */
+    /* På smala skärmar får vikten hela bredden. */
     @media (max-width: 560px) {
       main { padding-top: 28px; }
       .card { padding: 18px; }
-      .two-columns { grid-template-columns: 1fr; }
       .weight { max-width: none; }
     }
   </style>
@@ -233,30 +289,33 @@
   <!-- ==================== HTML: vad som finns på sidan ==================== -->
   <main>
     <h1>Beslutsduellen</h1>
-    <p class="intro">Väg två alternativ mot varandra och se vilket som vinner.</p>
+    <p class="intro">Väg dina alternativ mot varandra och se vilket som vinner.</p>
 
     <section class="card">
       <h2>1. Vad väljer du mellan?</h2>
-      <p class="hint">Ge dina två alternativ varsitt namn.</p>
-      <div class="two-columns">
-        <div>
-          <label for="name-a">Alternativ A</label>
-          <input type="text" id="name-a" placeholder="t.ex. Golfresa till Portugal">
-        </div>
-        <div>
-          <label for="name-b">Alternativ B</label>
-          <input type="text" id="name-b" placeholder="t.ex. Golfresa till Spanien">
-        </div>
+      <p class="hint">Ge dina alternativ varsitt namn. Du kan jämföra två till fem alternativ.</p>
+      <div id="alternatives"></div>
+      <div class="alternatives-footer">
+        <button type="button" id="add-alternative">+ Lägg till alternativ</button>
+        <p id="alternatives-count" class="hint"></p>
       </div>
     </section>
 
     <section class="card">
       <h2>2. Vad är viktigt?</h2>
       <p class="hint">
-        Lägg till kriterier, ange hur viktiga de är och betygsätt alternativen.
+        Ta ett kriterium i taget: ange hur viktigt det är och betygsätt alternativen.
         5 är alltid bäst, så ett lågt pris ger en hög poäng.
+        Klicka på en vald poäng igen för att ta bort den.
       </p>
-      <div id="criteria"></div>
+      <div id="progress" class="progress"></div>
+      <p id="status" class="status" tabindex="-1"></p>
+      <p id="status-detail" class="status-detail"></p>
+      <div id="criterion"></div>
+      <div id="criterion-nav" class="criterion-nav">
+        <button type="button" id="previous-criterion">← Föregående</button>
+        <button type="button" id="next-criterion">Nästa →</button>
+      </div>
       <button type="button" id="add-criterion">+ Lägg till kriterium</button>
     </section>
 
@@ -278,45 +337,76 @@
 
   <!-- ==================== JavaScript: vad appen gör ==================== -->
   <script>
-    // Appens minne: en lista med alla kriterier som användaren har skapat.
+    const MIN_ALTERNATIVES = 2;
+    const MAX_ALTERNATIVES = 5;
+
+    // Appens minne: alla alternativ och kriterier som användaren har skapat.
+    // Poängen ligger i varje kriterium och är kopplade till alternativens id:
+    // { id: 3, name: "Pris", weight: 5, scores: { 1: 3, 2: 4 } }
+    // Ett alternativ utan poäng saknas helt i scores.
+    let alternatives = [];
     let criteria = [];
     let nextId = 1;
 
+    // Vilket kriterium som visas just nu (plats i listan).
+    let currentIndex = 0;
+
     // Hämtar ett element på sidan med hjälp av dess id.
     const el = (id) => document.getElementById(id);
+
+    // Gör om en lista med namn till svensk text: "A, B och C".
+    const joinNames = (names) => new Intl.ListFormat("sv").format(names);
 
 
     // ---------- BERÄKNINGEN: hjärtat i appen ----------
 
     // För varje kriterium: vikt × poäng. Alla produkter läggs sedan ihop.
     // Exempel: vikt 5 och poäng 3 ger 15 poäng till alternativet.
-    function calculateResult(list) {
-      let totalA = 0;
-      let totalB = 0;
+    function calculateResult(alternativeList, list) {
       let maxTotal = 0;
-
       for (const c of list) {
-        totalA += c.weight * c.scoreA;
-        totalB += c.weight * c.scoreB;
         maxTotal += c.weight * 5; // Högsta möjliga: poäng 5 på allt.
       }
 
-      let winner = "tie";
-      if (totalA > totalB) winner = "A";
-      if (totalB > totalA) winner = "B";
+      const ranking = alternativeList.map((alternative) => {
+        let total = 0;
+        for (const c of list) {
+          total += c.weight * c.scores[alternative.id];
+        }
+        return { alternative, total };
+      });
 
-      return { totalA, totalB, maxTotal, winner };
+      // Högst poäng först. Samma poäng ger samma placering, och nästa placering
+      // hoppar över de delade platserna: 1, 1, 3.
+      ranking.sort((first, second) => second.total - first.total);
+      ranking.forEach((entry, index) => {
+        const previous = ranking[index - 1];
+        entry.place = previous && previous.total === entry.total ? previous.place : index + 1;
+      });
+
+      return { ranking, maxTotal };
     }
 
 
     // ---------- KONTROLL: är allt ifyllt? ----------
 
-    function findProblems(nameA, nameB, list) {
-      const problems = [];
+    // Alternativets namn, eller dess plats i listan om det saknar namn.
+    const alternativeLabel = (alternative) =>
+      alternative.name || `Alternativ ${alternatives.indexOf(alternative) + 1}`;
 
-      if (!nameA || !nameB) {
-        problems.push("Ge båda alternativen ett namn.");
-      } else if (nameA.toLowerCase() === nameB.toLowerCase()) {
+    const missingScores = (c) =>
+      alternatives.filter((alternative) => c.scores[alternative.id] === undefined);
+
+    const isCriterionDone = (c) => c.name !== "" && missingScores(c).length === 0;
+
+    function findProblems(alternativeList, list) {
+      const problems = [];
+      const names = alternativeList.map((a) => a.name.toLowerCase()).filter((name) => name);
+
+      if (names.length < alternativeList.length) {
+        problems.push("Ge alla alternativ ett namn.");
+      }
+      if (new Set(names).size < names.length) {
         problems.push("Ge alternativen olika namn.");
       }
 
@@ -325,8 +415,9 @@
       list.forEach((c, index) => {
         const title = c.name || `Kriterium ${index + 1}`;
         if (!c.name) problems.push(`${title} saknar namn.`);
-        if (c.scoreA === null || c.scoreB === null) {
-          problems.push(`${title}: ge båda alternativen en poäng.`);
+        const missing = missingScores(c);
+        if (missing.length > 0) {
+          problems.push(`${title}: poäng saknas för ${joinNames(missing.map(alternativeLabel))}.`);
         }
       });
 
@@ -336,7 +427,8 @@
 
     // ---------- LAGRING: sparar jämförelsen i den här webbläsaren ----------
 
-    const STORAGE_KEY = "beslutsduellen-jamforelse";
+    // Version 1.1 sparade under en annan nyckel. Den datan lämnas orörd.
+    const STORAGE_KEY = "beslutsduellen-jamforelse-v1.2";
     const SAVE_FAILED = "Jämförelsen kunde inte sparas. Du kan fortsätta, men dina ändringar försvinner om du laddar om eller stänger sidan.";
 
     function showStorageWarning(message) {
@@ -345,15 +437,9 @@
     }
 
     function saveComparison() {
-      const comparison = {
-        nameA: el("name-a").value,
-        nameB: el("name-b").value,
-        criteria,
-      };
-
       // Webbläsaren kan blockera lagringen, därför behövs try/catch.
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(comparison));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ alternatives, criteria }));
         el("storage-warning").hidden = true;
       } catch {
         showStorageWarning(SAVE_FAILED);
@@ -363,23 +449,45 @@
     // En vikt eller poäng måste vara ett heltal från 1 till 5.
     const isOneToFive = (value) => Number.isInteger(value) && value >= 1 && value <= 5;
 
-    function isValidCriterion(c) {
+    const isValidId = (id) => Number.isSafeInteger(id) && id >= 1;
+
+    const hasUniqueIds = (list) => new Set(list.map((item) => item.id)).size === list.length;
+
+    function isValidAlternative(a) {
+      return typeof a === "object" && a !== null
+        && isValidId(a.id)
+        && typeof a.name === "string";
+    }
+
+    // Poäng får bara finnas för alternativ som finns.
+    function isValidScores(scores, alternativeList) {
+      if (typeof scores !== "object" || scores === null || Array.isArray(scores)) return false;
+
+      const knownIds = alternativeList.map((a) => String(a.id));
+      return Object.entries(scores).every(
+        ([id, score]) => knownIds.includes(id) && isOneToFive(score)
+      );
+    }
+
+    function isValidCriterion(c, alternativeList) {
       return typeof c === "object" && c !== null
-        && Number.isSafeInteger(c.id) && c.id >= 1
+        && isValidId(c.id)
         && typeof c.name === "string"
         && isOneToFive(c.weight)
-        && (c.scoreA === null || isOneToFive(c.scoreA))
-        && (c.scoreB === null || isOneToFive(c.scoreB));
+        && isValidScores(c.scores, alternativeList);
     }
 
     // Kontrollerar allt innan något används, så att felaktig data inte kan krascha appen.
     function isValidComparison(data) {
       return typeof data === "object" && data !== null
-        && typeof data.nameA === "string"
-        && typeof data.nameB === "string"
+        && Array.isArray(data.alternatives)
+        && data.alternatives.length >= MIN_ALTERNATIVES
+        && data.alternatives.length <= MAX_ALTERNATIVES
+        && data.alternatives.every(isValidAlternative)
+        && hasUniqueIds(data.alternatives)
         && Array.isArray(data.criteria)
-        && data.criteria.every(isValidCriterion)
-        && new Set(data.criteria.map((c) => c.id)).size === data.criteria.length;
+        && data.criteria.every((c) => isValidCriterion(c, data.alternatives))
+        && hasUniqueIds(data.criteria);
     }
 
     // Returnerar true om en sparad jämförelse har återställts.
@@ -409,21 +517,19 @@
         return false;
       }
 
-      // Namnen måste vara på plats innan kriterierna ritas, eftersom rubrikerna använder dem.
-      el("name-a").value = data.nameA;
-      el("name-b").value = data.nameB;
+      alternatives = data.alternatives.map((a) => ({ id: a.id, name: a.name.trim() }));
       criteria = data.criteria.map((c) => ({
         id: c.id,
         name: c.name.trim(),
         weight: c.weight,
-        scoreA: c.scoreA,
-        scoreB: c.scoreB,
+        scores: { ...c.scores },
       }));
 
-      // Nya kriterier måste få ett id som inte redan används.
-      nextId = criteria.reduce((highest, c) => Math.max(highest, c.id), 0) + 1;
+      // Nya alternativ och kriterier måste få ett id som inte redan används.
+      nextId = [...alternatives, ...criteria].reduce((highest, item) => Math.max(highest, item.id), 0) + 1;
 
-      renderCriteria();
+      // Appen öppnar det första kriterium som inte är färdigt.
+      currentIndex = Math.max(criteria.findIndex((c) => !isCriterionDone(c)), 0);
       return true;
     }
 
@@ -439,12 +545,9 @@
 
     // ---------- VISA PÅ SIDAN ----------
 
-    // Alternativens namn, utan mellanslag i början och slutet.
-    const nameA = () => el("name-a").value.trim();
-    const nameB = () => el("name-b").value.trim();
-
     // Skapar en rad med fem valbara knappar (1–5).
-    function createScale(title, groupName, currentValue, onChange) {
+    // Med canClear kan användaren klicka på den valda knappen igen för att ta bort valet.
+    function createScale(title, groupName, currentValue, onChange, canClear = false) {
       const fieldset = document.createElement("fieldset");
       const legend = document.createElement("legend");
       legend.textContent = title;
@@ -452,6 +555,8 @@
 
       const scale = document.createElement("div");
       scale.className = "scale";
+
+      let selected = currentValue;
 
       for (let value = 1; value <= 5; value++) {
         const label = document.createElement("label");
@@ -461,8 +566,29 @@
         input.type = "radio";
         input.name = groupName;
         input.value = value;
-        input.checked = currentValue === value;
-        input.addEventListener("change", () => onChange(value));
+        input.checked = selected === value;
+        // Radioknappar säger inte till när man klickar på den redan valda,
+        // därför lyssnar vi på klick i stället för på ändringar.
+        const clear = () => {
+          input.checked = false;
+          selected = undefined;
+          onChange(undefined);
+        };
+        input.addEventListener("click", () => {
+          if (selected !== value) {
+            selected = value;
+            onChange(value);
+          } else if (canClear) {
+            clear();
+          }
+        });
+        // Mellanslag på en vald radioknapp ger inget klick, så det hanteras för sig.
+        input.addEventListener("keyup", (event) => {
+          if (event.key === " " && canClear && selected === value) {
+            event.preventDefault();
+            clear();
+          }
+        });
         text.textContent = value;
 
         label.append(input, text);
@@ -473,12 +599,127 @@
       return fieldset;
     }
 
-    // Ritar om listan med kriterier utifrån appens minne.
-    function renderCriteria() {
-      const container = el("criteria");
+    // Ritar om listan med alternativ utifrån appens minne.
+    function renderAlternatives() {
+      const container = el("alternatives");
       container.replaceChildren();
 
+      alternatives.forEach((alternative, index) => {
+        const row = document.createElement("div");
+        row.className = "alternative-row";
+
+        const nameField = document.createElement("div");
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        label.textContent = `Alternativ ${index + 1}`;
+        label.htmlFor = `alternative-${alternative.id}`;
+        input.id = `alternative-${alternative.id}`;
+        input.type = "text";
+        input.placeholder = `t.ex. Golfresa till ${["Portugal", "Spanien", "Italien", "Frankrike", "Irland"][index]}`;
+        input.value = alternative.name;
+        input.addEventListener("input", () => {
+          alternative.name = input.value.trim();
+          remove.setAttribute("aria-label", `Ta bort ${alternativeLabel(alternative)}`);
+          // Korten ritas om för att visa det nya namnet. Fältet man skriver i
+          // ligger utanför dem, så markören påverkas inte.
+          renderCriterion();
+          handleChange();
+        });
+        nameField.append(label, input);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "remove";
+        remove.textContent = "Ta bort";
+        remove.setAttribute("aria-label", `Ta bort ${alternativeLabel(alternative)}`);
+        remove.disabled = alternatives.length <= MIN_ALTERNATIVES;
+        remove.addEventListener("click", () => removeAlternative(alternative));
+
+        row.append(nameField, remove);
+        container.append(row);
+      });
+
+      el("add-alternative").disabled = alternatives.length >= MAX_ALTERNATIVES;
+      el("alternatives-count").textContent = `${alternatives.length} av ${MAX_ALTERNATIVES} alternativ`;
+    }
+
+    function addAlternative() {
+      if (alternatives.length >= MAX_ALTERNATIVES) return;
+
+      const alternative = { id: nextId++, name: "" };
+      alternatives.push(alternative);
+      renderAlternatives();
+      renderCriterion();
+      handleChange();
+      el(`alternative-${alternative.id}`).focus();
+    }
+
+    function removeAlternative(alternative) {
+      if (alternatives.length <= MIN_ALTERNATIVES) return;
+
+      // Frågar bara om det finns poäng att förlora.
+      const hasScores = criteria.some((c) => c.scores[alternative.id] !== undefined);
+      const question = `Vill du ta bort ${alternativeLabel(alternative)} och dess poäng? Det går inte att ångra.`;
+      if (hasScores && !confirm(question)) return;
+
+      alternatives = alternatives.filter((other) => other !== alternative);
       for (const c of criteria) {
+        delete c.scores[alternative.id];
+      }
+      renderAlternatives();
+      renderCriterion();
+      handleChange();
+      el("add-alternative").focus();
+    }
+
+    // Visar vilka kriterier som är färdiga och var användaren befinner sig.
+    function renderProgress() {
+      const container = el("progress");
+      container.replaceChildren();
+
+      criteria.forEach((c, index) => {
+        const done = isCriterionDone(c);
+        const button = document.createElement("button");
+        const description = `Kriterium ${index + 1}${c.name ? `, ${c.name}` : ""}: ${done ? "färdigt" : "inte färdigt"}`;
+        button.type = "button";
+        button.textContent = done ? `${index + 1} ✓` : `${index + 1}`;
+        button.title = description;
+        button.setAttribute("aria-label", description);
+        if (done) button.className = "done";
+        if (index === currentIndex) button.setAttribute("aria-current", "step");
+        button.addEventListener("click", () => goToCriterion(index));
+        container.append(button);
+      });
+
+      const c = criteria[currentIndex];
+      el("criterion-nav").hidden = !c;
+
+      if (!c) {
+        el("status").textContent = "Inga kriterier ännu.";
+        el("status-detail").textContent = "Lägg till ett kriterium för att börja.";
+        return;
+      }
+
+      const doneCount = criteria.filter(isCriterionDone).length;
+      el("status").textContent = `Kriterium ${currentIndex + 1} av ${criteria.length} · ${doneCount} av ${criteria.length} färdiga`;
+
+      const missing = missingScores(c);
+      const details = [];
+      if (!c.name) details.push("Namn saknas.");
+      if (missing.length > 0) details.push(`Poäng saknas för ${joinNames(missing.map(alternativeLabel))}.`);
+      el("status-detail").textContent = details.join(" ") || "Färdigt ✓";
+
+      el("previous-criterion").disabled = currentIndex === 0;
+      el("next-criterion").disabled = currentIndex === criteria.length - 1;
+    }
+
+    // Ritar det kriterium som visas just nu.
+    function renderCriterion() {
+      const container = el("criterion");
+      container.replaceChildren();
+
+      const c = criteria[currentIndex];
+      if (c) {
         const row = document.createElement("div");
         row.className = "criterion";
 
@@ -509,8 +750,10 @@
         remove.setAttribute("aria-label", `Ta bort ${c.name || "kriterium"}`);
         remove.addEventListener("click", () => {
           criteria = criteria.filter((other) => other !== c);
+          currentIndex = Math.max(Math.min(currentIndex, criteria.length - 1), 0);
+          renderCriterion();
           handleChange();
-          renderCriteria();
+          el("add-criterion").focus();
         });
 
         head.append(nameField, remove);
@@ -522,29 +765,49 @@
         });
         weight.classList.add("weight");
 
-        // Poängen för de två alternativen
-        const scores = document.createElement("div");
-        scores.className = "two-columns";
-        scores.append(
-          createScale(`Poäng: ${nameA() || "Alternativ A"}`, `score-a-${c.id}`, c.scoreA, (v) => {
-            c.scoreA = v;
-            handleChange();
-          }),
-          createScale(`Poäng: ${nameB() || "Alternativ B"}`, `score-b-${c.id}`, c.scoreB, (v) => {
-            c.scoreB = v;
-            handleChange();
-          })
-        );
+        // Ett kort med poäng för varje alternativ
+        const cards = document.createElement("div");
+        cards.className = "score-cards";
+        for (const alternative of alternatives) {
+          const card = document.createElement("div");
+          card.className = "score-card";
+          card.append(createScale(
+            `Poäng: ${alternativeLabel(alternative)}`,
+            `score-${c.id}-${alternative.id}`,
+            c.scores[alternative.id],
+            (v) => {
+              if (v === undefined) {
+                delete c.scores[alternative.id];
+              } else {
+                c.scores[alternative.id] = v;
+              }
+              handleChange();
+            },
+            true
+          ));
+          cards.append(card);
+        }
 
-        row.append(head, weight, scores);
+        row.append(head, weight, cards);
         container.append(row);
       }
+
+      renderProgress();
+    }
+
+    function goToCriterion(index) {
+      currentIndex = index;
+      renderCriterion();
+      el("status").focus();
     }
 
     function addCriterion() {
       // Vikten börjar på 3. Poängen är tomma så att användaren måste ta ställning.
-      criteria.push({ id: nextId++, name: "", weight: 3, scoreA: null, scoreB: null });
-      renderCriteria();
+      const c = { id: nextId++, name: "", weight: 3, scores: {} };
+      criteria.push(c);
+      currentIndex = criteria.length - 1;
+      renderCriterion();
+      return c;
     }
 
     function showErrors(problems) {
@@ -592,20 +855,16 @@
     }
 
     function showResult(result) {
-      const a = nameA();
-      const b = nameB();
+      const { ranking, maxTotal } = result;
+      const winners = ranking.filter((entry) => entry.place === 1);
 
-      if (result.winner === "tie") {
-        el("winner-label").textContent = "Resultatet blev";
-        el("winner-name").textContent = "Oavgjort!";
-      } else {
-        el("winner-label").textContent = "Vinnaren är";
-        el("winner-name").textContent = result.winner === "A" ? a : b;
-      }
+      el("winner-label").textContent = winners.length > 1 ? "Delad förstaplats" : "Vinnaren är";
+      el("winner-name").textContent = joinNames(winners.map((entry) => entry.alternative.name));
 
       el("bars").replaceChildren(
-        createBar(a, result.totalA, result.maxTotal),
-        createBar(b, result.totalB, result.maxTotal)
+        ...ranking.map((entry) =>
+          createBar(`${entry.place}. ${entry.alternative.name}`, entry.total, maxTotal)
+        )
       );
 
       // Tabellen visar hur varje kriterium bidrog: vikt × poäng.
@@ -615,16 +874,18 @@
       const body = table.createTBody();
       const foot = table.createTFoot();
 
-      addTableRow(head, ["Kriterium", "Vikt", a, b], "th");
+      addTableRow(head, ["Kriterium", "Vikt", ...ranking.map((entry) => entry.alternative.name)], "th");
       for (const c of criteria) {
         addTableRow(body, [
           c.name,
           c.weight,
-          `${c.scoreA} × ${c.weight} = ${c.scoreA * c.weight}`,
-          `${c.scoreB} × ${c.weight} = ${c.scoreB * c.weight}`,
+          ...ranking.map((entry) => {
+            const score = c.scores[entry.alternative.id];
+            return `${score} × ${c.weight} = ${score * c.weight}`;
+          }),
         ]);
       }
-      addTableRow(foot, ["Totalt", "", result.totalA, result.totalB]);
+      addTableRow(foot, ["Totalt", "", ...ranking.map((entry) => entry.total)]);
 
       el("result").hidden = false;
       el("result").focus();
@@ -640,58 +901,68 @@
     function handleChange() {
       hideResult();
       saveComparison();
+      renderProgress();
+    }
+
+    // Två tomma alternativ och ett tomt kriterium.
+    function startEmptyComparison() {
+      alternatives = [{ id: nextId++, name: "" }, { id: nextId++, name: "" }];
+      criteria = [];
+      addCriterion();
+      renderAlternatives();
     }
 
     function restart() {
       if (!confirm("Vill du rensa jämförelsen? Det går inte att ångra.")) return;
 
       clearSavedComparison();
-      el("name-a").value = "";
-      el("name-b").value = "";
-      criteria = [];
       hideResult();
-      addCriterion();
+      startEmptyComparison();
       window.scrollTo(0, 0);
-      el("name-a").focus();
+      el(`alternative-${alternatives[0].id}`).focus();
     }
 
 
     // ---------- KOPPLA KNAPPARNA TILL FUNKTIONERNA ----------
 
+    el("add-alternative").addEventListener("click", addAlternative);
+
     el("add-criterion").addEventListener("click", () => {
-      addCriterion();
+      const c = addCriterion();
       handleChange();
+      el(`criterion-${c.id}`).focus();
     });
 
+    el("previous-criterion").addEventListener("click", () => goToCriterion(currentIndex - 1));
+    el("next-criterion").addEventListener("click", () => goToCriterion(currentIndex + 1));
+
     el("calculate").addEventListener("click", () => {
-      const problems = findProblems(nameA(), nameB(), criteria);
+      const problems = findProblems(alternatives, criteria);
       if (problems.length > 0) {
         el("result").hidden = true;
         showErrors(problems);
+
+        // Visar det första kriterium som behöver åtgärdas.
+        const firstUnfinished = criteria.findIndex((c) => !isCriterionDone(c));
+        if (firstUnfinished >= 0) {
+          currentIndex = firstUnfinished;
+          renderCriterion();
+        }
         return;
       }
       el("errors").hidden = true;
-      showResult(calculateResult(criteria));
+      showResult(calculateResult(alternatives, criteria));
     });
 
     el("restart").addEventListener("click", restart);
 
-    // När ett namn ändras ska rubrikerna vid poängen ändras också.
-    // Vi byter bara rubriktexten, så att ingen markör eller inmatning störs.
-    for (const [id, prefix] of [["name-a", "score-a"], ["name-b", "score-b"]]) {
-      el(id).addEventListener("input", () => {
-        handleChange();
-        const fallback = id === "name-a" ? "Alternativ A" : "Alternativ B";
-        for (const c of criteria) {
-          const group = document.querySelector(`input[name="${prefix}-${c.id}"]`);
-          group.closest("fieldset").querySelector("legend").textContent =
-            `Poäng: ${el(id).value.trim() || fallback}`;
-        }
-      });
+    // Appen återställer den sparade jämförelsen, annars startar den tom.
+    if (loadComparison()) {
+      renderAlternatives();
+      renderCriterion();
+    } else {
+      startEmptyComparison();
     }
-
-    // Appen återställer den sparade jämförelsen, annars startar den med ett tomt kriterium.
-    if (!loadComparison()) addCriterion();
   </script>
 </body>
 </html>
