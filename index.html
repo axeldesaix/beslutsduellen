@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Beslutsduellen</title>
+
+  <!-- ==================== CSS: hur appen ser ut ==================== -->
+  <style>
+    /* Färgerna samlas här, så att de är lätta att ändra på ett ställe. */
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f4f0;
+      --card: #ffffff;
+      --text: #1f2328;
+      --muted: #626a73;
+      --line: #dcdad3;
+      --accent: #1f6f54;
+      --accent-text: #ffffff;
+      --accent-soft: #e2f1eb;
+      --error: #a8321f;
+      --error-soft: #fbeae6;
+    }
+
+    /* Mörkt läge används om datorn är inställd på det. */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #16191c;
+        --card: #1f2327;
+        --text: #eef0f2;
+        --muted: #a2aab3;
+        --line: #363c42;
+        --accent: #5cc29c;
+        --accent-text: #0d1f18;
+        --accent-soft: #1d3a2f;
+        --error: #f0917f;
+        --error-soft: #3d221d;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 16px 72px;
+    }
+
+    h1 { margin: 0; font-size: 2.25rem; letter-spacing: -0.02em; }
+    h2 { margin: 0 0 4px; font-size: 1.2rem; }
+    .intro { margin: 8px 0 32px; color: var(--muted); font-size: 1.1rem; }
+    .hint { margin: 0 0 16px; color: var(--muted); font-size: 0.95rem; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    label, .field-label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+    }
+
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .two-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* Ett kriterium: namn, vikt och poäng för båda alternativen. */
+    .criterion {
+      border-top: 1px solid var(--line);
+      padding: 20px 0;
+    }
+
+    .criterion-head {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .criterion-head > div { flex: 1; }
+
+    /* Knapparna 1–5 är egentligen radioknappar med ett annat utseende. */
+    fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+    legend { padding: 0; margin-bottom: 4px; font-size: 0.9rem; font-weight: 600; overflow-wrap: anywhere; }
+
+    .scale { display: flex; gap: 4px; }
+    .scale label { flex: 1; margin: 0; cursor: pointer; }
+    .scale input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+    .scale span {
+      display: block;
+      padding: 8px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .scale input:checked + span {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-text);
+    }
+
+    .scale input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .weight { margin-bottom: 16px; max-width: calc(50% - 8px); }
+
+    button {
+      padding: 11px 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.primary {
+      width: 100%;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-text);
+      font-size: 1.05rem;
+    }
+
+    button.remove { padding: 10px 12px; color: var(--muted); font-weight: 500; }
+
+    .errors {
+      margin-bottom: 16px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      background: var(--error-soft);
+      color: var(--error);
+    }
+
+    .errors ul { margin: 0; padding-left: 18px; }
+
+    /* Resultatet */
+    #result:focus { outline: none; }
+
+    .winner {
+      margin-bottom: 24px;
+      padding: 24px;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      text-align: center;
+    }
+
+    .winner p { margin: 0; color: var(--muted); }
+
+    .winner strong {
+      display: block;
+      font-size: 1.9rem;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    .bar-row { margin-bottom: 16px; }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .bar-label span:first-child { overflow-wrap: anywhere; }
+    .bar-label span:last-child { white-space: nowrap; }
+
+    .bar { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+    .bar div { height: 100%; background: var(--accent); }
+
+    .table-wrap { overflow-x: auto; margin: 24px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    th, td { padding: 8px; border-bottom: 1px solid var(--line); text-align: right; overflow-wrap: break-word; }
+    th:first-child, td:first-child { text-align: left; padding-left: 0; }
+    tfoot td { font-weight: 700; border-bottom: 0; }
+
+    [hidden] { display: none !important; }
+
+    /* På smala skärmar hamnar kolumnerna under varandra. */
+    @media (max-width: 560px) {
+      main { padding-top: 28px; }
+      .card { padding: 18px; }
+      .two-columns { grid-template-columns: 1fr; }
+      .weight { max-width: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== HTML: vad som finns på sidan ==================== -->
+  <main>
+    <h1>Beslutsduellen</h1>
+    <p class="intro">Väg två alternativ mot varandra och se vilket som vinner.</p>
+
+    <section class="card">
+      <h2>1. Vad väljer du mellan?</h2>
+      <p class="hint">Ge dina två alternativ varsitt namn.</p>
+      <div class="two-columns">
+        <div>
+          <label for="name-a">Alternativ A</label>
+          <input type="text" id="name-a" placeholder="t.ex. Golfresa till Portugal">
+        </div>
+        <div>
+          <label for="name-b">Alternativ B</label>
+          <input type="text" id="name-b" placeholder="t.ex. Golfresa till Spanien">
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Vad är viktigt?</h2>
+      <p class="hint">
+        Lägg till kriterier, ange hur viktiga de är och betygsätt alternativen.
+        5 är alltid bäst, så ett lågt pris ger en hög poäng.
+      </p>
+      <div id="criteria"></div>
+      <button type="button" id="add-criterion">+ Lägg till kriterium</button>
+    </section>
+
+    <div id="errors" class="errors" role="alert" hidden></div>
+    <button type="button" id="calculate" class="primary">Utse vinnaren</button>
+
+    <section id="result" class="card" style="margin-top: 16px" tabindex="-1" hidden>
+      <div class="winner">
+        <p id="winner-label"></p>
+        <strong id="winner-name"></strong>
+      </div>
+      <div id="bars"></div>
+      <div class="table-wrap"><table id="details"></table></div>
+      <button type="button" id="restart">Börja om</button>
+    </section>
+  </main>
+
+  <!-- ==================== JavaScript: vad appen gör ==================== -->
+  <script>
+    // Appens minne: en lista med alla kriterier som användaren har skapat.
+    let criteria = [];
+    let nextId = 1;
+
+    // Hämtar ett element på sidan med hjälp av dess id.
+    const el = (id) => document.getElementById(id);
+
+
+    // ---------- BERÄKNINGEN: hjärtat i appen ----------
+
+    // För varje kriterium: vikt × poäng. Alla produkter läggs sedan ihop.
+    // Exempel: vikt 5 och poäng 3 ger 15 poäng till alternativet.
+    function calculateResult(list) {
+      let totalA = 0;
+      let totalB = 0;
+      let maxTotal = 0;
+
+      for (const c of list) {
+        totalA += c.weight * c.scoreA;
+        totalB += c.weight * c.scoreB;
+        maxTotal += c.weight * 5; // Högsta möjliga: poäng 5 på allt.
+      }
+
+      let winner = "tie";
+      if (totalA > totalB) winner = "A";
+      if (totalB > totalA) winner = "B";
+
+      return { totalA, totalB, maxTotal, winner };
+    }
+
+
+    // ---------- KONTROLL: är allt ifyllt? ----------
+
+    function findProblems(nameA, nameB, list) {
+      const problems = [];
+
+      if (!nameA || !nameB) {
+        problems.push("Ge båda alternativen ett namn.");
+      } else if (nameA.toLowerCase() === nameB.toLowerCase()) {
+        problems.push("Ge alternativen olika namn.");
+      }
+
+      if (list.length === 0) problems.push("Lägg till minst ett kriterium.");
+
+      list.forEach((c, index) => {
+        const title = c.name || `Kriterium ${index + 1}`;
+        if (!c.name) problems.push(`${title} saknar namn.`);
+        if (c.scoreA === null || c.scoreB === null) {
+          problems.push(`${title}: ge båda alternativen en poäng.`);
+        }
+      });
+
+      return problems;
+    }
+
+
+    // ---------- VISA PÅ SIDAN ----------
+
+    // Alternativens namn, utan mellanslag i början och slutet.
+    const nameA = () => el("name-a").value.trim();
+    const nameB = () => el("name-b").value.trim();
+
+    // Skapar en rad med fem valbara knappar (1–5).
+    function createScale(title, groupName, currentValue, onChange) {
+      const fieldset = document.createElement("fieldset");
+      const legend = document.createElement("legend");
+      legend.textContent = title;
+      fieldset.append(legend);
+
+      const scale = document.createElement("div");
+      scale.className = "scale";
+
+      for (let value = 1; value <= 5; value++) {
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        const text = document.createElement("span");
+
+        input.type = "radio";
+        input.name = groupName;
+        input.value = value;
+        input.checked = currentValue === value;
+        input.addEventListener("change", () => onChange(value));
+        text.textContent = value;
+
+        label.append(input, text);
+        scale.append(label);
+      }
+
+      fieldset.append(scale);
+      return fieldset;
+    }
+
+    // Ritar om listan med kriterier utifrån appens minne.
+    function renderCriteria() {
+      const container = el("criteria");
+      container.replaceChildren();
+
+      for (const c of criteria) {
+        const row = document.createElement("div");
+        row.className = "criterion";
+
+        // Kriteriets namn och en ta bort-knapp
+        const head = document.createElement("div");
+        head.className = "criterion-head";
+
+        const nameField = document.createElement("div");
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        label.textContent = "Kriterium";
+        label.htmlFor = `criterion-${c.id}`;
+        input.id = `criterion-${c.id}`;
+        input.type = "text";
+        input.placeholder = "t.ex. Pris, väder eller golfbanor";
+        input.value = c.name;
+        input.addEventListener("input", () => {
+          c.name = input.value.trim();
+          remove.setAttribute("aria-label", `Ta bort ${c.name || "kriterium"}`);
+          hideResult();
+        });
+        nameField.append(label, input);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "remove";
+        remove.textContent = "Ta bort";
+        remove.setAttribute("aria-label", `Ta bort ${c.name || "kriterium"}`);
+        remove.addEventListener("click", () => {
+          criteria = criteria.filter((other) => other !== c);
+          hideResult();
+          renderCriteria();
+        });
+
+        head.append(nameField, remove);
+
+        // Vikten
+        const weight = createScale("Vikt: hur viktigt är det?", `weight-${c.id}`, c.weight, (v) => {
+          c.weight = v;
+          hideResult();
+        });
+        weight.classList.add("weight");
+
+        // Poängen för de två alternativen
+        const scores = document.createElement("div");
+        scores.className = "two-columns";
+        scores.append(
+          createScale(`Poäng: ${nameA() || "Alternativ A"}`, `score-a-${c.id}`, c.scoreA, (v) => {
+            c.scoreA = v;
+            hideResult();
+          }),
+          createScale(`Poäng: ${nameB() || "Alternativ B"}`, `score-b-${c.id}`, c.scoreB, (v) => {
+            c.scoreB = v;
+            hideResult();
+          })
+        );
+
+        row.append(head, weight, scores);
+        container.append(row);
+      }
+    }
+
+    function addCriterion() {
+      // Vikten börjar på 3. Poängen är tomma så att användaren måste ta ställning.
+      criteria.push({ id: nextId++, name: "", weight: 3, scoreA: null, scoreB: null });
+      renderCriteria();
+    }
+
+    function showErrors(problems) {
+      const list = document.createElement("ul");
+      for (const problem of problems) {
+        const item = document.createElement("li");
+        item.textContent = problem;
+        list.append(item);
+      }
+      el("errors").replaceChildren(list);
+      el("errors").hidden = false;
+    }
+
+    function createBar(name, total, max) {
+      const row = document.createElement("div");
+      row.className = "bar-row";
+
+      const label = document.createElement("div");
+      label.className = "bar-label";
+      const nameText = document.createElement("span");
+      const scoreText = document.createElement("span");
+      nameText.textContent = name;
+      scoreText.textContent = `${total} av ${max} poäng`;
+      label.append(nameText, scoreText);
+
+      const bar = document.createElement("div");
+      bar.className = "bar";
+      const fill = document.createElement("div");
+      fill.style.width = `${(total / max) * 100}%`;
+      bar.append(fill);
+
+      row.append(label, bar);
+      return row;
+    }
+
+    // Lägger till en tabellrad. Med tag kan vi välja rubrikceller (th) eller vanliga (td).
+    function addTableRow(parent, cells, tag = "td") {
+      const row = document.createElement("tr");
+      for (const text of cells) {
+        const cell = document.createElement(tag);
+        cell.textContent = text;
+        row.append(cell);
+      }
+      parent.append(row);
+    }
+
+    function showResult(result) {
+      const a = nameA();
+      const b = nameB();
+
+      if (result.winner === "tie") {
+        el("winner-label").textContent = "Resultatet blev";
+        el("winner-name").textContent = "Oavgjort!";
+      } else {
+        el("winner-label").textContent = "Vinnaren är";
+        el("winner-name").textContent = result.winner === "A" ? a : b;
+      }
+
+      el("bars").replaceChildren(
+        createBar(a, result.totalA, result.maxTotal),
+        createBar(b, result.totalB, result.maxTotal)
+      );
+
+      // Tabellen visar hur varje kriterium bidrog: vikt × poäng.
+      const table = el("details");
+      table.replaceChildren();
+      const head = table.createTHead();
+      const body = table.createTBody();
+      const foot = table.createTFoot();
+
+      addTableRow(head, ["Kriterium", "Vikt", a, b], "th");
+      for (const c of criteria) {
+        addTableRow(body, [
+          c.name,
+          c.weight,
+          `${c.scoreA} × ${c.weight} = ${c.scoreA * c.weight}`,
+          `${c.scoreB} × ${c.weight} = ${c.scoreB * c.weight}`,
+        ]);
+      }
+      addTableRow(foot, ["Totalt", "", result.totalA, result.totalB]);
+
+      el("result").hidden = false;
+      el("result").focus();
+    }
+
+    // Ett gammalt resultat ska inte synas när användaren har ändrat något.
+    function hideResult() {
+      el("result").hidden = true;
+      el("errors").hidden = true;
+    }
+
+    function restart() {
+      el("name-a").value = "";
+      el("name-b").value = "";
+      criteria = [];
+      hideResult();
+      addCriterion();
+      window.scrollTo(0, 0);
+      el("name-a").focus();
+    }
+
+
+    // ---------- KOPPLA KNAPPARNA TILL FUNKTIONERNA ----------
+
+    el("add-criterion").addEventListener("click", () => {
+      hideResult();
+      addCriterion();
+    });
+
+    el("calculate").addEventListener("click", () => {
+      const problems = findProblems(nameA(), nameB(), criteria);
+      if (problems.length > 0) {
+        el("result").hidden = true;
+        showErrors(problems);
+        return;
+      }
+      el("errors").hidden = true;
+      showResult(calculateResult(criteria));
+    });
+
+    el("restart").addEventListener("click", restart);
+
+    // När ett namn ändras ska rubrikerna vid poängen ändras också.
+    // Vi byter bara rubriktexten, så att ingen markör eller inmatning störs.
+    for (const [id, prefix] of [["name-a", "score-a"], ["name-b", "score-b"]]) {
+      el(id).addEventListener("input", () => {
+        hideResult();
+        const fallback = id === "name-a" ? "Alternativ A" : "Alternativ B";
+        for (const c of criteria) {
+          const group = document.querySelector(`input[name="${prefix}-${c.id}"]`);
+          group.closest("fieldset").querySelector("legend").textContent =
+            `Poäng: ${el(id).value.trim() || fallback}`;
+        }
+      });
+    }
+
+    // Appen startar med ett tomt kriterium.
+    addCriterion();
+  </script>
+</body>
+</html>
