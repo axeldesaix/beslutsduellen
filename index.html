@@ -165,6 +165,16 @@
 
     .errors ul { margin: 0; padding-left: 18px; }
 
+    .storage-warning {
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      border: 1px solid var(--error);
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
+
+    .clear { display: block; margin: 16px auto 0; }
+
     /* Resultatet */
     #result:focus { outline: none; }
 
@@ -250,6 +260,7 @@
       <button type="button" id="add-criterion">+ Lägg till kriterium</button>
     </section>
 
+    <div id="storage-warning" class="storage-warning" role="status" hidden></div>
     <div id="errors" class="errors" role="alert" hidden></div>
     <button type="button" id="calculate" class="primary">Utse vinnaren</button>
 
@@ -260,8 +271,9 @@
       </div>
       <div id="bars"></div>
       <div class="table-wrap"><table id="details"></table></div>
-      <button type="button" id="restart">Börja om</button>
     </section>
+
+    <button type="button" id="restart" class="clear">Rensa och börja om</button>
   </main>
 
   <!-- ==================== JavaScript: vad appen gör ==================== -->
@@ -319,6 +331,109 @@
       });
 
       return problems;
+    }
+
+
+    // ---------- LAGRING: sparar jämförelsen i den här webbläsaren ----------
+
+    const STORAGE_KEY = "beslutsduellen-jamforelse";
+    const SAVE_FAILED = "Jämförelsen kunde inte sparas. Du kan fortsätta, men dina ändringar försvinner om du laddar om eller stänger sidan.";
+
+    function showStorageWarning(message) {
+      el("storage-warning").textContent = message;
+      el("storage-warning").hidden = false;
+    }
+
+    function saveComparison() {
+      const comparison = {
+        nameA: el("name-a").value,
+        nameB: el("name-b").value,
+        criteria,
+      };
+
+      // Webbläsaren kan blockera lagringen, därför behövs try/catch.
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(comparison));
+        el("storage-warning").hidden = true;
+      } catch {
+        showStorageWarning(SAVE_FAILED);
+      }
+    }
+
+    // En vikt eller poäng måste vara ett heltal från 1 till 5.
+    const isOneToFive = (value) => Number.isInteger(value) && value >= 1 && value <= 5;
+
+    function isValidCriterion(c) {
+      return typeof c === "object" && c !== null
+        && Number.isSafeInteger(c.id) && c.id >= 1
+        && typeof c.name === "string"
+        && isOneToFive(c.weight)
+        && (c.scoreA === null || isOneToFive(c.scoreA))
+        && (c.scoreB === null || isOneToFive(c.scoreB));
+    }
+
+    // Kontrollerar allt innan något används, så att felaktig data inte kan krascha appen.
+    function isValidComparison(data) {
+      return typeof data === "object" && data !== null
+        && typeof data.nameA === "string"
+        && typeof data.nameB === "string"
+        && Array.isArray(data.criteria)
+        && data.criteria.every(isValidCriterion)
+        && new Set(data.criteria.map((c) => c.id)).size === data.criteria.length;
+    }
+
+    // Returnerar true om en sparad jämförelse har återställts.
+    function loadComparison() {
+      const unreadable = "Den sparade jämförelsen kunde inte läsas, så appen startade tom.";
+      let saved;
+      let data;
+
+      try {
+        saved = localStorage.getItem(STORAGE_KEY);
+      } catch {
+        showStorageWarning(SAVE_FAILED);
+        return false;
+      }
+
+      if (saved === null) return false;
+
+      try {
+        data = JSON.parse(saved);
+      } catch {
+        showStorageWarning(unreadable);
+        return false;
+      }
+
+      if (!isValidComparison(data)) {
+        showStorageWarning(unreadable);
+        return false;
+      }
+
+      // Namnen måste vara på plats innan kriterierna ritas, eftersom rubrikerna använder dem.
+      el("name-a").value = data.nameA;
+      el("name-b").value = data.nameB;
+      criteria = data.criteria.map((c) => ({
+        id: c.id,
+        name: c.name.trim(),
+        weight: c.weight,
+        scoreA: c.scoreA,
+        scoreB: c.scoreB,
+      }));
+
+      // Nya kriterier måste få ett id som inte redan används.
+      nextId = criteria.reduce((highest, c) => Math.max(highest, c.id), 0) + 1;
+
+      renderCriteria();
+      return true;
+    }
+
+    function clearSavedComparison() {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        el("storage-warning").hidden = true;
+      } catch {
+        showStorageWarning("Den sparade jämförelsen kunde inte raderas från webbläsaren.");
+      }
     }
 
 
@@ -383,7 +498,7 @@
         input.addEventListener("input", () => {
           c.name = input.value.trim();
           remove.setAttribute("aria-label", `Ta bort ${c.name || "kriterium"}`);
-          hideResult();
+          handleChange();
         });
         nameField.append(label, input);
 
@@ -394,7 +509,7 @@
         remove.setAttribute("aria-label", `Ta bort ${c.name || "kriterium"}`);
         remove.addEventListener("click", () => {
           criteria = criteria.filter((other) => other !== c);
-          hideResult();
+          handleChange();
           renderCriteria();
         });
 
@@ -403,7 +518,7 @@
         // Vikten
         const weight = createScale("Vikt: hur viktigt är det?", `weight-${c.id}`, c.weight, (v) => {
           c.weight = v;
-          hideResult();
+          handleChange();
         });
         weight.classList.add("weight");
 
@@ -413,11 +528,11 @@
         scores.append(
           createScale(`Poäng: ${nameA() || "Alternativ A"}`, `score-a-${c.id}`, c.scoreA, (v) => {
             c.scoreA = v;
-            hideResult();
+            handleChange();
           }),
           createScale(`Poäng: ${nameB() || "Alternativ B"}`, `score-b-${c.id}`, c.scoreB, (v) => {
             c.scoreB = v;
-            hideResult();
+            handleChange();
           })
         );
 
@@ -521,7 +636,16 @@
       el("errors").hidden = true;
     }
 
+    // Körs vid varje ändring från användaren.
+    function handleChange() {
+      hideResult();
+      saveComparison();
+    }
+
     function restart() {
+      if (!confirm("Vill du rensa jämförelsen? Det går inte att ångra.")) return;
+
+      clearSavedComparison();
       el("name-a").value = "";
       el("name-b").value = "";
       criteria = [];
@@ -535,8 +659,8 @@
     // ---------- KOPPLA KNAPPARNA TILL FUNKTIONERNA ----------
 
     el("add-criterion").addEventListener("click", () => {
-      hideResult();
       addCriterion();
+      handleChange();
     });
 
     el("calculate").addEventListener("click", () => {
@@ -556,7 +680,7 @@
     // Vi byter bara rubriktexten, så att ingen markör eller inmatning störs.
     for (const [id, prefix] of [["name-a", "score-a"], ["name-b", "score-b"]]) {
       el(id).addEventListener("input", () => {
-        hideResult();
+        handleChange();
         const fallback = id === "name-a" ? "Alternativ A" : "Alternativ B";
         for (const c of criteria) {
           const group = document.querySelector(`input[name="${prefix}-${c.id}"]`);
@@ -566,8 +690,8 @@
       });
     }
 
-    // Appen startar med ett tomt kriterium.
-    addCriterion();
+    // Appen återställer den sparade jämförelsen, annars startar den med ett tomt kriterium.
+    if (!loadComparison()) addCriterion();
   </script>
 </body>
 </html>
